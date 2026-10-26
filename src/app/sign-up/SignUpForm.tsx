@@ -3,8 +3,8 @@
 import { useSignUp } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 import { syncProfileAfterSignUp } from "./actions";
 
 const inputBase =
@@ -73,18 +73,31 @@ function PasswordField({
 export function SignUpForm() {
   const { signUp, errors, fetchStatus } = useSignUp();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteToken = (searchParams.get("invite") ?? "").trim();
   const [step, setStep] = useState<"form" | "verify">("form");
   const [localError, setLocalError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [defaultEmail, setDefaultEmail] = useState("");
   const busy = fetchStatus === "fetching";
+
+  useEffect(() => {
+    if (!inviteToken) return;
+    document.cookie = `noe_invite=${encodeURIComponent(inviteToken)}; path=/; max-age=${60 * 60 * 24 * 14}; samesite=lax`;
+  }, [inviteToken]);
+
+  useEffect(() => {
+    const prefill = searchParams.get("email");
+    if (prefill) setDefaultEmail(prefill);
+  }, [searchParams]);
 
   async function finish() {
     await signUp.finalize({
       navigate: async ({ session, decorateUrl }) => {
         if (session?.currentTask) return;
         try {
-          await syncProfileAfterSignUp();
+          await syncProfileAfterSignUp(inviteToken || undefined);
         } catch {
           // le profil sera synchronisé à l'arrivée sur /onboarding
         }
@@ -109,7 +122,10 @@ export function SignUpForm() {
       firstName: String(fd.get("firstName") ?? "").trim(),
       emailAddress: String(fd.get("email") ?? "").trim(),
       password,
-      unsafeMetadata: { onboarding: "pending" },
+      unsafeMetadata: {
+        onboarding: "pending",
+        ...(inviteToken ? { inviteToken } : {}),
+      },
     });
     if (error) return;
 
@@ -140,9 +156,16 @@ export function SignUpForm() {
         </h1>
         <p className="mt-1 text-sm text-noe-muted">
           {step === "form"
-            ? "Inscrivez-vous sur NOEWork Bank. Votre compte sera validé par un administrateur."
+            ? inviteToken
+              ? "Vous avez été invité(e). Créez votre compte — un administrateur validera ensuite l’accès."
+              : "Inscrivez-vous sur NOEWork Bank. Votre compte sera validé par un administrateur."
             : "Saisissez le code reçu par email."}
         </p>
+        {inviteToken && step === "form" && (
+          <p className="mt-3 rounded-full bg-noe-gold-soft px-3 py-1 text-xs font-medium text-noe-navy">
+            Invitation détectée
+          </p>
+        )}
       </div>
 
       {step === "form" ? (
@@ -161,7 +184,14 @@ export function SignUpForm() {
           </div>
           <label className="block text-sm font-medium text-noe-navy">
             Email
-            <input name="email" type="email" required autoComplete="email" className={inputBase} />
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              defaultValue={defaultEmail}
+              className={inputBase}
+            />
             <FieldErr msg={errors.fields.emailAddress?.message} />
           </label>
           <PasswordField

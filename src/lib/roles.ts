@@ -34,6 +34,7 @@ export const ROLE_NAV: Record<RoleCode, NavItem[]> = {
     { label: "Programmes", href: "/admin/programs" },
     { label: "Paiements", href: "/admin/payments" },
     { label: "Paramètres", href: "/admin/settings" },
+    { label: "Inviter", href: "/invites" },
   ],
   APPRENANT: [
     { label: "Tableau de bord", href: "/apprenant" },
@@ -41,12 +42,14 @@ export const ROLE_NAV: Record<RoleCode, NavItem[]> = {
     { label: "Sessions", href: "/apprenant/sessions" },
     { label: "Progression", href: "/apprenant/progress" },
     { label: "Paiements", href: "/apprenant/payments" },
+    { label: "Inviter", href: "/invites" },
   ],
   ENSEIGNANT: [
     { label: "Tableau de bord", href: "/enseignant" },
     { label: "Mes sessions", href: "/enseignant/sessions" },
     { label: "Présences", href: "/enseignant/attendance" },
     { label: "Contenu", href: "/enseignant/content" },
+    { label: "Inviter", href: "/invites" },
   ],
   COMPTABLE: [
     { label: "Tableau de bord", href: "/comptable" },
@@ -54,6 +57,7 @@ export const ROLE_NAV: Record<RoleCode, NavItem[]> = {
     { label: "Dépenses", href: "/comptable/expenses" },
     { label: "Commissions", href: "/comptable/commissions" },
     { label: "Rapports", href: "/comptable/reports" },
+    { label: "Inviter", href: "/invites" },
   ],
   MANAGER: [
     { label: "Tableau de bord", href: "/manager" },
@@ -61,6 +65,7 @@ export const ROLE_NAV: Record<RoleCode, NavItem[]> = {
     { label: "Ambassadeurs", href: "/manager/ambassadors" },
     { label: "Suivi", href: "/manager/tracking" },
     { label: "Rapports", href: "/manager/reports" },
+    { label: "Inviter", href: "/invites" },
   ],
 };
 

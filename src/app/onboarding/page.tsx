@@ -38,7 +38,8 @@ async function Onboarding() {
       </p>
       {!suspended && (
         <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-noe-gold-soft px-4 py-2 text-sm font-medium text-noe-navy">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-noe-gold" /> En attente de l’administrateur
+          <span className="h-2 w-2 animate-pulse rounded-full bg-noe-gold" /> 
+          En attente que l’administrateur valide votre inscription, nous vous prions de patienter ici. Une fois validé, vous pourrez accéder à votre espace de travail juste en actualisant cette page.
         </div>
       )}
       <div className="mt-8 flex justify-center gap-3 text-sm">

@@ -17,6 +17,13 @@ enum AccountStatus {
   SUSPENDED
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
 enum SessionStatus {
   PLANNED
   OPEN
@@ -63,9 +70,14 @@ model Profile {
   phone       String?
   email       String?
   accountStatus AccountStatus @default(PENDING)
+  invitedById String?       @db.Uuid
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  invitedBy     Profile?      @relation("ProfileInvitedBy", fields: [invitedById], references: [id])
+  invitees      Profile[]     @relation("ProfileInvitedBy")
+  invitesSent   Invitation[]  @relation("InvitesSent")
+  invitesAccepted Invitation[] @relation("InviteAccepted")
   roles         UserRole[]
   enrollments   Enrollment[]
   ambassador    Ambassador?
@@ -75,7 +87,32 @@ model Profile {
   auditLogs     AuditLog[]
 
   @@index([phone])
+  @@index([invitedById])
   @@map("profiles")
+}
+
+model Invitation {
+  id                String       @id @default(uuid()) @db.Uuid
+  token             String       @unique
+  inviterId         String       @db.Uuid
+  inviteeEmail      String
+  inviteeFirstName  String?
+  inviteeLastName   String?
+  status            InviteStatus @default(PENDING)
+  channelEmail      Boolean      @default(false)
+  channelWhatsapp   Boolean      @default(false)
+  expiresAt         DateTime
+  acceptedAt        DateTime?
+  acceptedProfileId String?      @db.Uuid
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  inviter         Profile  @relation("InvitesSent", fields: [inviterId], references: [id])
+  acceptedProfile Profile? @relation("InviteAccepted", fields: [acceptedProfileId], references: [id])
+
+  @@index([inviteeEmail])
+  @@index([inviterId, status])
+  @@map("invitations")
 }
 
 model Role {

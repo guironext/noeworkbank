@@ -145,3 +145,12 @@ export async function safeGetCurrentAccount(): Promise<
     return { account: null, dbError: true };
   }
 }
+
+/** Garde : compte ACTIF avec un rôle (tous rôles). */
+export async function requireActiveAccount(): Promise<CurrentAccount> {
+  const { account, dbError } = await safeGetCurrentAccount();
+  if (dbError) redirect("/onboarding");
+  if (!account) redirect("/sign-in");
+  if (account.status !== "ACTIVE" || !account.role) redirect("/onboarding");
+  return account;
+}
