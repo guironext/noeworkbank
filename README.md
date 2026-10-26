@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NOEWork Bank
 
-## Getting Started
+Plateforme de formation NOE POLYTECHNIQUE (NOE ADN BIG 4).
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+| Couche | Techno |
+|--------|--------|
+| App | Next.js (App Router) |
+| Auth | Clerk |
+| Base | Neon (PostgreSQL) |
+| ORM | Prisma |
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Démarrage
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Copier `.env.example` vers `.env` et renseigner Neon + Clerk.
+2. `npm install`
+3. `npx prisma migrate dev --name init` (nécessite `DATABASE_URL` + `DATABASE_URL_UNPOOLED`)
+4. `npm run dev`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Structure utile
 
-## Learn More
+- `prisma/schema.prisma` — modèle de données métier
+- `src/lib/prisma.ts` — client Prisma
+- `src/middleware.ts` — protection Clerk
+- `docs/` — architecture et résumé CDC
 
-To learn more about Next.js, take a look at the following resources:
+## Suite
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Brancher les modules inscriptions, CinetPay, ambassadeurs et admin selon le cahier des charges.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Inscription, validation admin et espaces par rôle
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **Base Neon** : renseigner `DATABASE_URL` / `DATABASE_URL_UNPOOLED` dans `.env`, puis
+   `npx prisma db push --config prisma7.config.ts` et `npm run db:seed` (crée les rôles ADMIN, APPRENANT, ENSEIGNANT, COMPTABLE, MANAGER).
+2. **Premier admin** : mettre `BOOTSTRAP_ADMIN_EMAIL=ton@email` dans `.env.local`, redémarrer `npm run dev`, s'inscrire (ou se connecter) avec cet email → le compte est automatiquement ACTIVE + ADMIN. (Si le profil existe déjà : `npm run db:seed`.)
+3. **Flux** : `/sign-up` (nom, prénoms, email, mot de passe + code email) → `/onboarding` (en attente) → l'admin valide dans `/admin/inscriptions` et choisit un rôle → l'utilisateur arrive sur `/admin`, `/apprenant`, `/enseignant`, `/comptable` ou `/manager`.
+4. **Webhook (optionnel)** : Clerk → Webhooks → `https://<domaine>/api/webhooks/clerk` (user.created, user.updated) avec `CLERK_WEBHOOK_SIGNING_SECRET`. Sans webhook, le profil est créé au premier passage (synchro idempotente).

@@ -1,0 +1,21 @@
+import { Suspense } from "react";
+import { RoleShell, ShellFallback } from "@/components/RoleShell";
+import { requireRole } from "@/lib/profile";
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<ShellFallback />}>
+      <Guarded>{children}</Guarded>
+    </Suspense>
+  );
+}
+
+async function Guarded({ children }: { children: React.ReactNode }) {
+  const account = await requireRole("COMPTABLE");
+  const name = `${account.firstName} ${account.lastName}`.trim() || account.email || "Utilisateur";
+  return (
+    <RoleShell role="COMPTABLE" userName={name}>
+      {children}
+    </RoleShell>
+  );
+}
