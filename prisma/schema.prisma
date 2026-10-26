@@ -1,0 +1,472 @@
+// NOEWork Bank — schéma Prisma (Neon PostgreSQL)
+// Stack: Next.js + Clerk + Neon + Prisma
+// Les décisions métier ouvertes du CDC restent en TODO (ne pas inventer).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // URLs dans prisma7.config.ts (Prisma 7) — pooled app / unpooled migrate
+}
+
+enum AccountStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum SessionStatus {
+  PLANNED
+  OPEN
+  FULL
+  CLOSED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  DRAFT
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  INITIATED
+  PENDING
+  CONFIRMED
+  FAILED
+  REFUNDED
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+  REJECTED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+model Profile {
+  id          String        @id @default(uuid()) @db.Uuid
+  clerkUserId String        @unique
+  lastName    String
+  firstName   String
+  phone       String?
+  email       String?
+  accountStatus AccountStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  roles         UserRole[]
+  enrollments   Enrollment[]
+  ambassador    Ambassador?
+  attendances   Attendance[]
+  lessonProgress LessonProgress[]
+  expensesCreated Expense[] @relation("ExpenseCreator")
+  auditLogs     AuditLog[]
+
+  @@index([phone])
+  @@map("profiles")
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique // ADMIN, APPRENANT, ENSEIGNANT, COMPTABLE, MANAGER
+  label       String
+  userRoles   UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id       String  @id @default(uuid()) @db.Uuid
+  userId   String  @db.Uuid
+  roleId   Int
+  cityId   String? @db.Uuid
+  isActive Boolean @default(true)
+
+  user Profile @relation(fields: [userId], references: [id])
+  role Role    @relation(fields: [roleId], references: [id])
+  city City?   @relation(fields: [cityId], references: [id])
+
+  @@unique([userId, roleId, cityId])
+  @@map("user_roles")
+}
+
+model City {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  code      String?  @unique
+  isActive  Boolean  @default(true)
+  // TODO métier: liste officielle des 20 villes (décision 1)
+  createdAt DateTime @default(now())
+
+  sessions  Session[]
+  userRoles UserRole[]
+  enrollments Enrollment[]
+
+  @@map("cities")
+}
+
+model Program {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique // FIN-001, IA-001, FON-001, IMO-001
+  title       String
+  description String?
+  isPublished Boolean  @default(false)
+  // TODO métier: durée pédagogique (décision 3)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modules  TrainingModule[]
+  sessions Session[]
+  enrollments Enrollment[]
+
+  @@map("programs")
+}
+
+model TrainingModule {
+  id              String  @id @default(uuid()) @db.Uuid
+  programId       String  @db.Uuid
+  position        Int
+  title           String
+  isFinalProject  Boolean @default(false)
+
+  program  Program   @relation(fields: [programId], references: [id])
+  chapters Chapter[]
+
+  @@unique([programId, position])
+  @@map("training_modules")
+}
+
+model Chapter {
+  id       String @id @default(uuid()) @db.Uuid
+  moduleId String @db.Uuid
+  position Int
+  title    String
+
+  module  TrainingModule @relation(fields: [moduleId], references: [id])
+  lessons Lesson[]
+
+  @@unique([moduleId, position])
+  @@map("chapters")
+}
+
+model Lesson {
+  id        String @id @default(uuid()) @db.Uuid
+  chapterId String @db.Uuid
+  position  Int
+  title     String
+
+  chapter   Chapter @relation(fields: [chapterId], references: [id])
+  resources LearningResource[]
+  progress  LessonProgress[]
+
+  @@unique([chapterId, position])
+  @@map("lessons")
+}
+
+model LearningResource {
+  id          String @id @default(uuid()) @db.Uuid
+  lessonId    String @db.Uuid
+  kind        String // PDF, VIDEO, EXERCISE, QUIZ, ...
+  title       String?
+  storagePath String?
+  url         String?
+
+  lesson Lesson @relation(fields: [lessonId], references: [id])
+
+  @@map("learning_resources")
+}
+
+model Pack {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique // ECO, CLASSIQUE, PREMIUM
+  name      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  versions PackVersion[]
+
+  @@map("packs")
+}
+
+model PackVersion {
+  id        String   @id @default(uuid()) @db.Uuid
+  packId    String   @db.Uuid
+  version   Int
+  priceXof  Int
+  durationMonths Int
+  description String?
+  // TODO métier: droits d'accès aux piliers par formule (décision 2)
+  validFrom DateTime @default(now())
+
+  pack Pack @relation(fields: [packId], references: [id])
+  enrollments Enrollment[]
+
+  @@unique([packId, version])
+  @@map("pack_versions")
+}
+
+model Session {
+  id          String        @id @default(uuid()) @db.Uuid
+  programId   String        @db.Uuid
+  cityId      String        @db.Uuid
+  location    String?
+  startsAt    DateTime
+  endsAt      DateTime
+  capacity    Int
+  status      SessionStatus @default(PLANNED)
+  // TODO métier: durée hold réservation place (configurable)
+
+  program Program @relation(fields: [programId], references: [id])
+  city    City    @relation(fields: [cityId], references: [id])
+  trainers SessionTrainer[]
+  enrollments Enrollment[]
+  attendances Attendance[]
+
+  @@index([cityId, status])
+  @@map("sessions")
+}
+
+model SessionTrainer {
+  id        String @id @default(uuid()) @db.Uuid
+  sessionId String @db.Uuid
+  profileId String @db.Uuid
+
+  session Session @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, profileId])
+  @@map("session_trainers")
+}
+
+model Enrollment {
+  id             String           @id @default(uuid()) @db.Uuid
+  profileId      String           @db.Uuid
+  programId      String           @db.Uuid
+  packVersionId  String           @db.Uuid
+  cityId         String           @db.Uuid
+  sessionId      String?          @db.Uuid
+  status         EnrollmentStatus @default(DRAFT)
+  // Snapshot commercial RG-005/006/007
+  priceXofSnapshot Int
+  acceptedTermsAt  DateTime?
+  // TODO métier: date début suivi (décision 5), multi-programmes (4), transferts (10)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  profile     Profile     @relation(fields: [profileId], references: [id])
+  program     Program     @relation(fields: [programId], references: [id])
+  packVersion PackVersion @relation(fields: [packVersionId], references: [id])
+  city        City        @relation(fields: [cityId], references: [id])
+  session     Session?    @relation(fields: [sessionId], references: [id])
+  payments    Payment[]
+  referral    Referral?
+  commission  Commission?
+  receipt     Receipt?
+
+  @@index([profileId, status])
+  @@map("enrollments")
+}
+
+model Payment {
+  id                String        @id @default(uuid()) @db.Uuid
+  enrollmentId      String        @db.Uuid
+  provider          String        @default("CINETPAY")
+  providerTxnId     String?
+  amountXof         Int
+  currency          String        @default("XOF")
+  paymentMethod     String?
+  status            PaymentStatus @default(INITIATED)
+  initiatedAt       DateTime      @default(now())
+  confirmedAt       DateTime?
+  // TODO métier: paiements partiels (décision 8)
+
+  enrollment Enrollment     @relation(fields: [enrollmentId], references: [id])
+  events     PaymentEvent[]
+
+  @@index([providerTxnId])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  paymentId String   @db.Uuid
+  eventType String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@map("payment_events")
+}
+
+model Receipt {
+  id             String   @id @default(uuid()) @db.Uuid
+  enrollmentId   String   @unique @db.Uuid
+  receiptNumber  String   @unique
+  pdfPath        String?
+  issuedAt       DateTime @default(now())
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+
+  @@map("receipts")
+}
+
+model Ambassador {
+  id               String   @id @default(uuid()) @db.Uuid
+  profileId        String   @unique @db.Uuid
+  referralCode     String   @unique
+  commissionRateBps Int     // basis points; TODO métier: taux définitif (décision 6)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  profile     Profile      @relation(fields: [profileId], references: [id])
+  referrals   Referral[]
+  commissions Commission[]
+
+  @@map("ambassadors")
+}
+
+model Referral {
+  id            String   @id @default(uuid()) @db.Uuid
+  ambassadorId  String   @db.Uuid
+  enrollmentId  String   @unique @db.Uuid
+  createdAt     DateTime @default(now())
+
+  ambassador Ambassador @relation(fields: [ambassadorId], references: [id])
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+
+  @@map("referrals")
+}
+
+model Commission {
+  id            String           @id @default(uuid()) @db.Uuid
+  ambassadorId  String           @db.Uuid
+  enrollmentId  String           @unique @db.Uuid
+  rateBpsSnapshot Int
+  amountXof     Int
+  status        CommissionStatus @default(PENDING)
+  createdAt     DateTime         @default(now())
+  approvedAt    DateTime?
+  paidAt        DateTime?
+
+  ambassador Ambassador @relation(fields: [ambassadorId], references: [id])
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+  payouts    CommissionPayout[]
+
+  @@map("commissions")
+}
+
+model CommissionPayout {
+  id           String   @id @default(uuid()) @db.Uuid
+  commissionId String   @db.Uuid
+  amountXof    Int
+  paidAt       DateTime @default(now())
+  reference    String?
+
+  commission Commission @relation(fields: [commissionId], references: [id])
+
+  @@map("commission_payouts")
+}
+
+model Attendance {
+  id         String           @id @default(uuid()) @db.Uuid
+  sessionId  String           @db.Uuid
+  profileId  String           @db.Uuid
+  status     AttendanceStatus
+  recordedAt DateTime         @default(now())
+
+  session Session @relation(fields: [sessionId], references: [id])
+  profile Profile @relation(fields: [profileId], references: [id])
+
+  @@unique([sessionId, profileId])
+  @@map("attendance")
+}
+
+model LessonProgress {
+  id          String   @id @default(uuid()) @db.Uuid
+  profileId   String   @db.Uuid
+  lessonId    String   @db.Uuid
+  completedAt DateTime @default(now())
+
+  profile Profile @relation(fields: [profileId], references: [id])
+  lesson  Lesson  @relation(fields: [lessonId], references: [id])
+
+  @@unique([profileId, lessonId])
+  @@map("lesson_progress")
+}
+
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid
+  category    String
+  amountXof   Int
+  cityId      String?  @db.Uuid
+  description String?
+  spentAt     DateTime
+  createdById String   @db.Uuid
+  createdAt   DateTime @default(now())
+
+  createdBy Profile @relation("ExpenseCreator", fields: [createdById], references: [id])
+
+  @@map("expenses")
+}
+
+model Refund {
+  id           String   @id @default(uuid()) @db.Uuid
+  enrollmentId String   @db.Uuid
+  paymentId    String?  @db.Uuid
+  amountXof    Int
+  status       String
+  // TODO métier: règles de remboursement (décision 7)
+  createdAt    DateTime @default(now())
+
+  @@map("refunds")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  profileId String?  @db.Uuid
+  channel   String
+  eventType String
+  payload   Json?
+  sentAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+model ApprWorkItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  dimension   String
+  title       String
+  status      String   @default("OPEN")
+  meta        Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("appr_work_items")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entityType String
+  entityId   String?
+  meta       Json?
+  createdAt  DateTime @default(now())
+
+  actor Profile? @relation(fields: [actorId], references: [id])
+
+  @@map("audit_logs")
+}
