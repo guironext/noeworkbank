@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActiveAccount } from "@/lib/profile";
 import { signupInviteUrl } from "@/lib/app-url";
 import { InviteForm } from "./InviteForm";
+import { CopyLinkButton } from "./CopyLinkButton";
 import { revokeInvite } from "./actions";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -26,8 +27,8 @@ export default async function InvitesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-noe-navy">Inviter quelqu’un</h1>
         <p className="mt-1 text-sm text-noe-muted">
-          Envoyez un lien d’inscription par email ou WhatsApp. Toute personne active sur la plateforme
-          peut inviter.
+          Générez un lien, copiez-le et envoyez-le à la personne cible. Elle arrive sur la page
+          d’inscription.
         </p>
       </div>
 
@@ -46,34 +47,20 @@ export default async function InvitesPage() {
               const status = expired ? "EXPIRED" : inv.status;
               const link = signupInviteUrl(inv.token);
               return (
-                <li key={inv.id} className="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <li
+                  key={inv.id}
+                  className="flex flex-col gap-2 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <div>
                     <p className="font-medium text-noe-navy">{inv.inviteeEmail}</p>
                     <p className="text-xs text-noe-muted">
                       {inv.createdAt.toLocaleDateString("fr-FR")} · {STATUS_LABEL[status] ?? status}
-                      {inv.channelEmail ? " · Email" : ""}
-                      {inv.channelWhatsapp ? " · WhatsApp" : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {status === "PENDING" && (
                       <>
-                        <a
-                          href={link}
-                          className="rounded-full border border-noe-line px-3 py-1.5 text-xs font-medium text-noe-navy hover:bg-zinc-50"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Lien
-                        </a>
-                        <a
-                          href={`https://wa.me/?text=${encodeURIComponent(`Rejoignez NOEWork Bank : ${link}`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-full bg-[#25D366]/15 px-3 py-1.5 text-xs font-medium text-[#128C7E] hover:bg-[#25D366]/25"
-                        >
-                          WhatsApp
-                        </a>
+                        <CopyLinkButton link={link} />
                         <form action={revokeInvite}>
                           <input type="hidden" name="inviteId" value={inv.id} />
                           <button
