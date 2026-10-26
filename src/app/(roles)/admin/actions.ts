@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { ensureRoles, mirrorToClerk, requireRole } from "@/lib/profile";
 import { isRoleCode } from "@/lib/roles";
@@ -13,7 +14,7 @@ export async function validateRegistration(formData: FormData) {
 
   await ensureRoles();
   const role = await prisma.role.findUniqueOrThrow({ where: { code: roleCode } });
-  const profile = await prisma.$transaction(async (tx) => {
+  const profile = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // Un rôle principal : on désactive les autres
     await tx.userRole.updateMany({ where: { userId: profileId }, data: { isActive: false } });
     const existing = await tx.userRole.findFirst({ where: { userId: profileId, roleId: role.id, cityId: null } });
