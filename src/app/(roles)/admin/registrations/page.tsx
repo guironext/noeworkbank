@@ -20,7 +20,7 @@ export default async function InscriptionsPage() {
               <tr><th className="p-3">Nom</th><th className="p-3">Prénoms</th><th className="p-3">Email</th><th className="p-3">Inscrit le</th><th className="p-3">Action</th></tr>
             </thead>
             <tbody>
-              {pending.map((p) => (
+              {pending.map((p: (typeof pending)[number]) => (
                 <tr key={p.id} className="border-t border-noe-line align-middle">
                   <td className="p-3 font-medium">{p.lastName}</td>
                   <td className="p-3">{p.firstName}</td>

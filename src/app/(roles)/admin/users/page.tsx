@@ -20,7 +20,7 @@ export default async function UtilisateursPage() {
             <tr><th className="p-3">Nom complet</th><th className="p-3">Email</th><th className="p-3">Statut</th><th className="p-3">Rôle</th><th className="p-3">Modifier</th></tr>
           </thead>
           <tbody>
-            {users.map((u) => {
+            {users.map((u: (typeof users)[number]) => {
               const code = u.roles[0]?.role.code;
               return (
                 <tr key={u.id} className="border-t border-noe-line">

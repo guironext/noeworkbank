@@ -103,7 +103,7 @@ export async function getCurrentAccount(): Promise<CurrentAccount | null> {
     });
   }
 
-  const codes = profile.roles.map((r) => r.role.code).filter(isRoleCode);
+  const codes = profile.roles.map((r: (typeof profile.roles)[number]) => r.role.code).filter(isRoleCode);
   const role = ROLE_CODES.find((c) => codes.includes(c)) ?? null;
 
   return {
